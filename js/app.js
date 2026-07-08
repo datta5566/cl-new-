@@ -1,20 +1,17 @@
 /*
   File Store Pro
-  Beginner-friendly JavaScript
+  Continuous barcode scanning + manual save
 
-  This file controls:
-  - KN1 to KN30 buttons
-  - 1st Shift and 2nd Shift records
-  - File upload
-  - Camera barcode scanner
-  - Manual barcode entry
-  - Save / View / Download / Delete
-  - Duplicate barcode warning
-  - localStorage save
-  - Excel export
+  New behavior:
+  - Type File / Batch Name first
+  - Start camera
+  - Every barcode scan auto-saves under that same file/batch name
+  - Camera keeps running until Stop is clicked
+  - All scanned barcodes show immediately in the shift table
 */
 
 const STORAGE_KEY = "FILE_STORE_PRO_RECORDS_V2";
+const OLD_STORAGE_KEYS = ["FILE_STORE_PRO_RECORDS_V1", "DK_FILE_STORE_PRO_RECORDS_V1"];
 
 let selectedKN = "KN1";
 let records = [];
@@ -29,16 +26,19 @@ const scannerRunning = {
   "2nd": false,
 };
 
-// App start
+const lastScanCache = {
+  "1st": { code: "", time: 0 },
+  "2nd": { code: "", time: 0 },
+};
+
 window.addEventListener("DOMContentLoaded", () => {
   loadRecords();
   createKNButtons();
   attachEvents();
   renderApp();
-  showToast("Website ready. Save button active hai.", "success");
+  showToast("Website ready. File / batch name type karke camera start karo.", "success");
 });
 
-// KN1 to KN30 buttons create
 function createKNButtons() {
   const knGrid = document.getElementById("knGrid");
   knGrid.innerHTML = "";
@@ -54,13 +54,11 @@ function createKNButtons() {
   }
 }
 
-// All click events in one place. This makes buttons work reliably.
 function attachEvents() {
   document.addEventListener("click", (event) => {
     const target = event.target.closest("button");
     if (!target) return;
 
-    // KN button
     if (target.classList.contains("kn-btn")) {
       selectedKN = target.dataset.kn;
       stopAllScanners();
@@ -69,13 +67,11 @@ function attachEvents() {
       return;
     }
 
-    // Save button
     if (target.dataset.saveShift) {
-      saveRecord(target.dataset.saveShift, target.dataset.shiftKey);
+      saveManualRecord(target.dataset.saveShift, target.dataset.shiftKey);
       return;
     }
 
-    // Camera start / stop
     if (target.dataset.action === "start") {
       startScanner(target.dataset.shiftKey);
       return;
@@ -86,7 +82,6 @@ function attachEvents() {
       return;
     }
 
-    // Export buttons
     if (target.id === "exportAllBtn") {
       exportAllRecords();
       return;
@@ -97,12 +92,16 @@ function attachEvents() {
       return;
     }
 
+    if (target.id === "clearAllBtn") {
+      clearAllRecords();
+      return;
+    }
+
     if (target.classList.contains("export-shift-btn")) {
       exportShiftRecords(target.dataset.shift);
       return;
     }
 
-    // Table buttons
     if (target.dataset.viewId) {
       viewFile(target.dataset.viewId);
       return;
@@ -119,17 +118,26 @@ function attachEvents() {
   });
 }
 
-// Load data from browser
 function loadRecords() {
   try {
     records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+    if (!records.length) {
+      for (const oldKey of OLD_STORAGE_KEYS) {
+        const oldData = JSON.parse(localStorage.getItem(oldKey)) || [];
+        if (Array.isArray(oldData) && oldData.length) {
+          records = oldData;
+          saveRecords();
+          break;
+        }
+      }
+    }
   } catch (error) {
-    records = [];
     console.error(error);
+    records = [];
   }
 }
 
-// Save data in browser
 function saveRecords() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
@@ -139,7 +147,6 @@ function saveRecords() {
   }
 }
 
-// Render whole app
 function renderApp() {
   renderHeader();
   renderKNActiveState();
@@ -186,7 +193,7 @@ function renderTable(shiftName, shiftKey) {
       <td>${escapeHTML(record.kn)}</td>
       <td>${escapeHTML(record.shift)}</td>
       <td>${escapeHTML(record.barcode || "-")}</td>
-      <td>${escapeHTML(record.fileName || "No File")}</td>
+      <td>${escapeHTML(record.fileName || record.batchName || "No File")}</td>
       <td>${escapeHTML(record.createdAt)}</td>
       <td>${record.fileData ? `<button class="btn action-btn" type="button" data-view-id="${record.id}">View</button>` : "-"}</td>
       <td>${record.fileData ? `<button class="btn action-btn" type="button" data-download-id="${record.id}">Download</button>` : "-"}</td>
@@ -200,37 +207,44 @@ function getRecordsByKNAndShift(kn, shiftName) {
   return records.filter((record) => record.kn === kn && record.shift === shiftName);
 }
 
-// Main save function
-async function saveRecord(shiftName, shiftKey) {
+function getShiftName(shiftKey) {
+  return shiftKey === "1st" ? "1st Shift" : "2nd Shift";
+}
+
+function getBatchFileName(shiftKey) {
+  const input = document.getElementById(`batchFile_${shiftKey}`);
+  return input ? input.value.trim() : "";
+}
+
+function isDuplicateBarcode(kn, shiftName, barcode) {
+  return records.some((record) =>
+    record.kn === kn &&
+    record.shift === shiftName &&
+    record.barcode &&
+    record.barcode.toLowerCase() === barcode.toLowerCase()
+  );
+}
+
+async function saveManualRecord(shiftName, shiftKey) {
   const barcodeInput = document.getElementById(`barcode_${shiftKey}`);
   const fileInput = document.getElementById(`file_${shiftKey}`);
+  const batchName = getBatchFileName(shiftKey);
 
   const barcodeValue = barcodeInput.value.trim();
   const file = fileInput.files[0];
 
-  // Important fix: File-only save and barcode-only save both allowed.
   if (!barcodeValue && !file) {
-    showToast("Barcode enter karo ya file upload karo, phir Save dabao.", "warning");
+    showToast("Barcode enter karo ya file upload karo, phir Manual Save dabao.", "warning");
     return;
   }
 
-  // Duplicate barcode check only when barcode is entered.
-  if (barcodeValue) {
-    const duplicate = records.some((record) =>
-      record.kn === selectedKN &&
-      record.shift === shiftName &&
-      record.barcode &&
-      record.barcode.toLowerCase() === barcodeValue.toLowerCase()
-    );
-
-    if (duplicate) {
-      showToast("This barcode is already scanned.", "warning");
-      return;
-    }
+  if (barcodeValue && isDuplicateBarcode(selectedKN, shiftName, barcodeValue)) {
+    showToast("This barcode is already scanned.", "warning");
+    return;
   }
 
   let fileData = "";
-  let fileName = "";
+  let fileName = batchName;
   let fileType = "";
 
   if (file) {
@@ -244,7 +258,8 @@ async function saveRecord(shiftName, shiftKey) {
     kn: selectedKN,
     shift: shiftName,
     barcode: barcodeValue || "-",
-    fileName,
+    fileName: fileName || "Manual Entry",
+    batchName: batchName || fileName || "Manual Entry",
     fileType,
     fileData,
     createdAt: getCurrentDateTime(),
@@ -258,6 +273,61 @@ async function saveRecord(shiftName, shiftKey) {
 
   renderApp();
   showToast(`Saved successfully in ${selectedKN} - ${shiftName}.`, "success");
+}
+
+function autoSaveScannedBarcode(decodedText, shiftKey) {
+  const barcode = String(decodedText || "").trim();
+  const shiftName = getShiftName(shiftKey);
+  const batchName = getBatchFileName(shiftKey);
+  const status = document.getElementById(`scanStatus_${shiftKey}`);
+  const barcodeInput = document.getElementById(`barcode_${shiftKey}`);
+
+  if (!barcode) return;
+
+  if (!batchName) {
+    if (status) status.textContent = "File / batch name blank hai. Pehle file name type karo.";
+    showToast("Pehle File / Batch Name type karo, phir scan karo.", "warning");
+    return;
+  }
+
+  const now = Date.now();
+  const last = lastScanCache[shiftKey];
+
+  // Same barcode camera ke saamne rehne par repeated scan avoid.
+  if (last.code === barcode && now - last.time < 1800) return;
+
+  lastScanCache[shiftKey] = { code: barcode, time: now };
+  if (barcodeInput) barcodeInput.value = barcode;
+
+  if (isDuplicateBarcode(selectedKN, shiftName, barcode)) {
+    if (status) status.textContent = `Duplicate skipped: ${barcode}`;
+    showToast("This barcode is already scanned.", "warning");
+    return;
+  }
+
+  const newRecord = {
+    id: createUniqueId(),
+    kn: selectedKN,
+    shift: shiftName,
+    barcode,
+    fileName: batchName,
+    batchName,
+    fileType: "",
+    fileData: "",
+    createdAt: getCurrentDateTime(),
+  };
+
+  records.unshift(newRecord);
+  saveRecords();
+  renderApp();
+
+  const totalInBatch = records.filter((record) =>
+    record.kn === selectedKN &&
+    record.shift === shiftName &&
+    (record.fileName === batchName || record.batchName === batchName)
+  ).length;
+
+  if (status) status.textContent = `Saved: ${barcode} | File: ${batchName} | Total in this file: ${totalInBatch}`;
 }
 
 function convertFileToBase64(file) {
@@ -280,32 +350,36 @@ async function startScanner(shiftKey) {
     return;
   }
 
+  const batchName = getBatchFileName(shiftKey);
+  if (!batchName) {
+    showToast("Camera start karne se pehle File / Batch Name type karo.", "warning");
+    const batchInput = document.getElementById(`batchFile_${shiftKey}`);
+    if (batchInput) batchInput.focus();
+    return;
+  }
+
   const readerId = `reader_${shiftKey}`;
-  const barcodeInput = document.getElementById(`barcode_${shiftKey}`);
   const scanStatus = document.getElementById(`scanStatus_${shiftKey}`);
 
   try {
     scanners[shiftKey] = new Html5Qrcode(readerId);
     scannerRunning[shiftKey] = true;
-    scanStatus.textContent = "Camera starting...";
+    if (scanStatus) scanStatus.textContent = `Camera starting... File: ${batchName}`;
 
     await scanners[shiftKey].start(
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 250, height: 140 } },
       (decodedText) => {
-        barcodeInput.value = decodedText;
-        scanStatus.textContent = `Scanned: ${decodedText}`;
-        showToast("Barcode scanned. Ab Save button dabao.", "success");
-        stopScanner(shiftKey);
+        autoSaveScannedBarcode(decodedText, shiftKey);
       },
       () => {}
     );
 
-    scanStatus.textContent = "Camera on. Barcode camera ke saamne rakho.";
+    if (scanStatus) scanStatus.textContent = `Camera on. Har barcode automatic save hoga. File: ${batchName}`;
   } catch (error) {
     console.error(error);
     scannerRunning[shiftKey] = false;
-    scanStatus.textContent = "Camera start nahi hua. Manual entry use karo.";
+    if (scanStatus) scanStatus.textContent = "Camera start nahi hua. Manual entry use karo.";
     showToast("Camera permission allow karo ya website HTTPS/localhost se run karo.", "error");
   }
 }
@@ -314,7 +388,7 @@ async function stopScanner(shiftKey) {
   const scanStatus = document.getElementById(`scanStatus_${shiftKey}`);
 
   if (!scanners[shiftKey] || !scannerRunning[shiftKey]) {
-    if (scanStatus) scanStatus.textContent = "Camera off. Manual entry also works.";
+    if (scanStatus) scanStatus.textContent = "Camera off. File / batch name type karke Start Camera dabao.";
     return;
   }
 
@@ -327,7 +401,8 @@ async function stopScanner(shiftKey) {
 
   scannerRunning[shiftKey] = false;
   scanners[shiftKey] = null;
-  if (scanStatus) scanStatus.textContent = "Camera off. Manual entry also works.";
+  lastScanCache[shiftKey] = { code: "", time: 0 };
+  if (scanStatus) scanStatus.textContent = "Camera stopped. Scanned barcodes saved ho gaye.";
 }
 
 function stopAllScanners() {
@@ -425,7 +500,7 @@ function exportRecordsToExcel(data, fileName) {
     "KN Number": record.kn,
     Shift: record.shift,
     "Barcode Number": record.barcode,
-    "File Name": record.fileName || "No File",
+    "File / Batch Name": record.fileName || record.batchName || "No File",
     "Upload / Scan Date & Time": record.createdAt,
   }));
 
@@ -438,7 +513,6 @@ function exportRecordsToExcel(data, fileName) {
     return;
   }
 
-  // Fallback CSV if Excel library does not load.
   const csv = convertRowsToCSV(rows);
   downloadTextFile(csv, fileName.replace(".xlsx", ".csv"), "text/csv");
   showToast("CSV downloaded. Excel library load nahi hui thi.", "warning");
