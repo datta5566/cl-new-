@@ -1,7 +1,8 @@
 /*
   Customer Complaint Traceability
-  This module keeps complaint records separate from production records.
-  It searches barcode records saved by app.js and shows KN + Shift trace.
+  - Saves customer complaints separately
+  - Traces scanned barcode from production records
+  - Decodes structured sticker / QR data and auto-fills fields
 */
 
 const COMPLAINT_STORAGE_KEY = "FILE_STORE_PRO_COMPLAINTS_V1";
@@ -12,6 +13,8 @@ const PRODUCTION_STORAGE_KEYS = [
 ];
 
 let complaintRecords = [];
+let stickerScanner = null;
+let stickerScannerRunning = false;
 
 window.addEventListener("DOMContentLoaded", () => {
   loadComplaintRecords();
@@ -24,11 +27,15 @@ function attachComplaintEvents() {
   const traceBtn = document.getElementById("traceBarcodeBtn");
   const clearBtn = document.getElementById("clearComplaintFormBtn");
   const exportBtn = document.getElementById("exportComplaintsBtn");
+  const startStickerBtn = document.getElementById("startStickerScannerBtn");
+  const stopStickerBtn = document.getElementById("stopStickerScannerBtn");
 
   if (saveBtn) saveBtn.addEventListener("click", saveComplaintAndTrace);
   if (traceBtn) traceBtn.addEventListener("click", traceBarcodeOnly);
   if (clearBtn) clearBtn.addEventListener("click", clearComplaintForm);
   if (exportBtn) exportBtn.addEventListener("click", exportComplaintsExcel);
+  if (startStickerBtn) startStickerBtn.addEventListener("click", startStickerScanner);
+  if (stopStickerBtn) stopStickerBtn.addEventListener("click", stopStickerScanner);
 }
 
 function loadComplaintRecords() {
@@ -81,10 +88,10 @@ function saveComplaintAndTrace() {
   const complaint = {
     id: createComplaintId(),
     ...form,
-    tracedKN: trace ? normalizeRecordField(trace, "kn") : "Not Found",
+    tracedKN: trace ? normalizeRecordField(trace, "kn") || normalizeRecordField(trace, "knNumber") : "Not Found",
     tracedShift: trace ? normalizeRecordField(trace, "shift") : "Not Found",
     tracedFileName: trace ? normalizeRecordField(trace, "fileName") : "",
-    tracedDateTime: trace ? normalizeRecordField(trace, "createdAt") : "",
+    tracedDateTime: trace ? normalizeRecordField(trace, "createdAt") || normalizeRecordField(trace, "dateTime") : "",
     createdAt: new Date().toLocaleString("en-IN")
   };
 
@@ -118,6 +125,146 @@ function findTraceByBarcode(barcode) {
   }) || null;
 }
 
+async function startStickerScanner() {
+  if (!window.Html5Qrcode) {
+    showComplaintToast("Scanner library load nahi hui. Internet check karo.", "error");
+    return;
+  }
+
+  if (stickerScannerRunning) {
+    showComplaintToast("Sticker scanner already running hai.", "warning");
+    return;
+  }
+
+  const status = document.getElementById("stickerScanStatus");
+
+  try {
+    stickerScanner = new Html5Qrcode("complaintReader");
+    stickerScannerRunning = true;
+    if (status) status.textContent = "Camera starting...";
+
+    await stickerScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 160 } },
+      (decodedText) => {
+        applyStickerData(decodedText);
+        if (status) status.textContent = `Scanned: ${decodedText}`;
+        showComplaintToast("Sticker scanned. Fields auto-fill ho gaye.", "success");
+        stopStickerScanner();
+      },
+      () => {}
+    );
+
+    if (status) status.textContent = "Camera on. Sticker / QR code camera ke saamne rakho.";
+  } catch (error) {
+    console.error(error);
+    stickerScannerRunning = false;
+    if (status) status.textContent = "Camera start nahi hua. Manual entry use karo.";
+    showComplaintToast("Camera permission allow karo ya HTTPS/localhost se website run karo.", "error");
+  }
+}
+
+async function stopStickerScanner() {
+  const status = document.getElementById("stickerScanStatus");
+
+  if (!stickerScanner || !stickerScannerRunning) {
+    if (status) status.textContent = "Sticker scanner off. Manual entry also works.";
+    return;
+  }
+
+  try {
+    await stickerScanner.stop();
+    await stickerScanner.clear();
+  } catch (error) {
+    console.warn(error);
+  }
+
+  stickerScanner = null;
+  stickerScannerRunning = false;
+  if (status) status.textContent = "Sticker scanner off. Manual entry also works.";
+}
+
+function applyStickerData(rawText) {
+  const data = parseStickerText(rawText);
+
+  // If QR has structured data, auto-fill all matching fields.
+  if (data.barcode) setValue("complaintBarcode", data.barcode);
+  if (data.customer) setValue("customerName", data.customer);
+  if (data.part) setValue("complaintPartName", data.part);
+  if (data.defect) setValue("complaintDefect", data.defect);
+  if (data.foundAt) setValue("complaintFoundAt", data.foundAt);
+  if (data.unit) setValue("suspectedUnit", data.unit);
+  if (data.remark) setValue("complaintRemark", data.remark);
+
+  // If QR is plain barcode only, put full text in barcode field.
+  if (!data.barcode && rawText) {
+    setValue("complaintBarcode", rawText.trim());
+  }
+
+  const barcode = getValue("complaintBarcode");
+  const trace = findTraceByBarcode(barcode);
+  showTraceResult(barcode, trace, null);
+}
+
+function parseStickerText(rawText) {
+  const result = {};
+  const text = String(rawText || "").trim();
+
+  // Try JSON QR format first.
+  // Example: {"bc":"123","part":"IC","unit":"KN12","customer":"ABC"}
+  try {
+    const json = JSON.parse(text);
+    if (json && typeof json === "object") {
+      return normalizeStickerObject(json);
+    }
+  } catch (error) {
+    // Not JSON, try key-value format.
+  }
+
+  // Key-value QR format:
+  // BC=123|PART=IC|UNIT=KN12|CUSTOMER=ABC|DEFECT=RAIL OUT
+  // Also supports comma, semicolon, new line.
+  const pairs = text.split(/[|;\n,]+/);
+  pairs.forEach((pair) => {
+    const separatorIndex = pair.search(/[:=]/);
+    if (separatorIndex === -1) return;
+
+    const key = pair.slice(0, separatorIndex).trim().toUpperCase();
+    const value = pair.slice(separatorIndex + 1).trim();
+    mapStickerKey(result, key, value);
+  });
+
+  return result;
+}
+
+function normalizeStickerObject(json) {
+  const result = {};
+  Object.keys(json).forEach((key) => {
+    mapStickerKey(result, key.toUpperCase(), String(json[key] || ""));
+  });
+  return result;
+}
+
+function mapStickerKey(result, key, value) {
+  if (!value) return;
+
+  const barcodeKeys = ["BC", "BARCODE", "BARCODE_NO", "BARCODENO", "CODE", "SR", "SERIAL"];
+  const partKeys = ["PART", "PART_NAME", "PARTNAME", "ITEM", "PROFILE"];
+  const unitKeys = ["UNIT", "KN", "MADE", "MADE_BY", "MADEBY", "PROCESS", "PROCESS_UNIT"];
+  const customerKeys = ["CUSTOMER", "SITE", "PROJECT", "CUSTOMER_NAME"];
+  const defectKeys = ["DEFECT", "DEFECT_TYPE", "ISSUE", "OBSERVATION"];
+  const foundAtKeys = ["FOUND", "FOUND_AT", "STAGE", "LOCATION"];
+  const remarkKeys = ["REMARK", "REMARKS", "NOTE", "DETAILS"];
+
+  if (barcodeKeys.includes(key)) result.barcode = value;
+  else if (partKeys.includes(key)) result.part = value;
+  else if (unitKeys.includes(key)) result.unit = value;
+  else if (customerKeys.includes(key)) result.customer = value;
+  else if (defectKeys.includes(key)) result.defect = value;
+  else if (foundAtKeys.includes(key)) result.foundAt = value;
+  else if (remarkKeys.includes(key)) result.remark = value;
+}
+
 function showTraceResult(barcode, trace, complaint) {
   const box = document.getElementById("traceResult");
   if (!box) return;
@@ -132,7 +279,8 @@ function showTraceResult(barcode, trace, complaint) {
     box.className = "trace-result warn";
     box.innerHTML = `
       <strong>Trace Not Found:</strong> Barcode <strong>${escapeComplaintHTML(barcode)}</strong> production records me nahi mila.<br>
-      Iska matlab: ya barcode scan/save nahi hua, ya data kisi dusre device/browser me hai, ya barcode galat enter hua.
+      Iska matlab: ya barcode scan/save nahi hua, ya data kisi dusre device/browser me hai, ya barcode galat enter hua.<br>
+      Agar QR me full sticker data hai to fields auto-fill honge, lekin purana KN/shift trace tabhi milega jab production record saved hoga.
     `;
     return;
   }
@@ -256,6 +404,11 @@ function normalizeRecordField(record, fieldName) {
 function getValue(id) {
   const input = document.getElementById(id);
   return input ? input.value.trim() : "";
+}
+
+function setValue(id, value) {
+  const input = document.getElementById(id);
+  if (input) input.value = value;
 }
 
 function createComplaintId() {
