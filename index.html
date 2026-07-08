@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DK File Store Pro</title>
+
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Barcode / QR scanner library. Works with mobile camera and laptop webcam on localhost/https. -->
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
+
+  <!-- Excel export library -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" defer></script>
+
+  <!-- Main JavaScript -->
+  <script src="js/app.js" defer></script>
+</head>
+
+<body>
+  <div class="app-shell">
+    <!-- Header -->
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Professional Local File & Barcode Dashboard</p>
+        <h1>DK File Store Pro</h1>
+        <p class="subtitle">KN1 to KN30 file upload, barcode scan, local storage and Excel export.</p>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn btn-soft" id="exportAllBtn" type="button">Download All Excel</button>
+        <button class="btn btn-danger-outline" id="clearAllBtn" type="button">Clear All</button>
+      </div>
+    </header>
+
+    <!-- Summary cards -->
+    <section class="summary-grid" aria-label="Dashboard summary">
+      <article class="summary-card">
+        <span>Total Records</span>
+        <strong id="totalRecords">0</strong>
+      </article>
+      <article class="summary-card">
+        <span>Selected KN</span>
+        <strong id="selectedKnLabel">KN1</strong>
+      </article>
+      <article class="summary-card">
+        <span>Barcode Count</span>
+        <strong id="barcodeCount">0</strong>
+      </article>
+      <article class="summary-card">
+        <span>1st Shift</span>
+        <strong id="firstShiftCount">0</strong>
+      </article>
+      <article class="summary-card">
+        <span>2nd Shift</span>
+        <strong id="secondShiftCount">0</strong>
+      </article>
+    </section>
+
+    <!-- KN Dashboard Buttons -->
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <h2>KN Dashboard</h2>
+          <p>Select KN number to open its separate 1st Shift and 2nd Shift records.</p>
+        </div>
+        <button class="btn btn-soft" id="exportCurrentKnBtn" type="button">Download Current KN Excel</button>
+      </div>
+
+      <div class="kn-grid" id="knGrid" aria-label="KN buttons">
+        <!-- KN1 to KN30 buttons are created by JavaScript -->
+      </div>
+    </section>
+
+    <!-- Active KN Section -->
+    <main class="active-section" id="activeSection">
+      <div class="active-header">
+        <div>
+          <p class="eyebrow">Active Section</p>
+          <h2 id="activeKnTitle">KN1 Records</h2>
+        </div>
+        <div class="badge" id="activeKnBadge">KN1</div>
+      </div>
+
+      <div class="shift-grid">
+        <!-- 1st Shift -->
+        <section class="shift-card" data-shift="1st Shift">
+          <div class="shift-title-row">
+            <div>
+              <h3>1st Shift</h3>
+              <p>Upload file, scan barcode or enter barcode manually.</p>
+            </div>
+            <button class="btn btn-soft export-shift-btn" type="button" data-shift="1st Shift">Shift Excel</button>
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>File Upload</span>
+              <input type="file" id="file_1st" />
+            </label>
+
+            <label class="field">
+              <span>Manual Barcode Entry</span>
+              <input type="text" id="barcode_1st" placeholder="Enter or scan barcode number" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="scanner-box">
+            <div class="scanner-header">
+              <strong>Camera Barcode Scanner</strong>
+              <div class="scanner-actions">
+                <button class="btn btn-mini" type="button" data-action="start" data-shift-key="1st">Start
+                  Camera</button>
+                <button class="btn btn-mini btn-danger-outline" type="button" data-action="stop"
+                  data-shift-key="1st">Stop</button>
+              </div>
+            </div>
+            <div class="reader" id="reader_1st"></div>
+            <p class="hint" id="scanStatus_1st">Camera off. Manual entry also works.</p>
+          </div>
+
+          <div class="save-row">
+            <button class="btn btn-primary" type="button" data-save-shift="1st Shift" data-shift-key="1st">Save 1st
+              Shift Record</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>KN Number</th>
+                  <th>Shift</th>
+                  <th>Barcode Number</th>
+                  <th>File Name</th>
+                  <th>Created Date & Time</th>
+                  <th>View</th>
+                  <th>Download</th>
+                  <th>Delete</th>
+                </tr>
+              </thead>
+              <tbody id="tbody_1st"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 2nd Shift -->
+        <section class="shift-card" data-shift="2nd Shift">
+          <div class="shift-title-row">
+            <div>
+              <h3>2nd Shift</h3>
+              <p>Separate storage for 2nd Shift. Data will not mix with 1st Shift.</p>
+            </div>
+            <button class="btn btn-soft export-shift-btn" type="button" data-shift="2nd Shift">Shift Excel</button>
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>File Upload</span>
+              <input type="file" id="file_2nd" />
+            </label>
+
+            <label class="field">
+              <span>Manual Barcode Entry</span>
+              <input type="text" id="barcode_2nd" placeholder="Enter or scan barcode number" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="scanner-box">
+            <div class="scanner-header">
+              <strong>Camera Barcode Scanner</strong>
+              <div class="scanner-actions">
+                <button class="btn btn-mini" type="button" data-action="start" data-shift-key="2nd">Start
+                  Camera</button>
+                <button class="btn btn-mini btn-danger-outline" type="button" data-action="stop"
+                  data-shift-key="2nd">Stop</button>
+              </div>
+            </div>
+            <div class="reader" id="reader_2nd"></div>
+            <p class="hint" id="scanStatus_2nd">Camera off. Manual entry also works.</p>
+          </div>
+
+          <div class="save-row">
+            <button class="btn btn-primary" type="button" data-save-shift="2nd Shift" data-shift-key="2nd">Save 2nd
+              Shift Record</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>KN Number</th>
+                  <th>Shift</th>
+                  <th>Barcode Number</th>
+                  <th>File Name</th>
+                  <th>Created Date & Time</th>
+                  <th>View</th>
+                  <th>Download</th>
+                  <th>Delete</th>
+                </tr>
+              </thead>
+              <tbody id="tbody_2nd"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Toast message -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+</body>
+
+</html>
