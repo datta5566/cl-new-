@@ -92,14 +92,19 @@
           <div class="shift-title-row">
             <div>
               <h3>1st Shift</h3>
-              <p>Upload file, scan barcode or enter barcode manually.</p>
+              <p>File / batch name type karo, camera start karo, barcode automatic save hote rahenge.</p>
             </div>
             <button class="btn btn-soft export-shift-btn" type="button" data-shift="1st Shift">Shift Excel</button>
           </div>
 
           <div class="form-grid">
             <label class="field">
-              <span>File Upload</span>
+              <span>File / Batch Name</span>
+              <input type="text" id="batchFile_1st" placeholder="Example: KN1 1st Shift File 01" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span>Optional File Upload</span>
               <input type="file" id="file_1st" />
             </label>
 
@@ -111,7 +116,7 @@
 
           <div class="scanner-box">
             <div class="scanner-header">
-              <strong>Camera Barcode Scanner</strong>
+              <strong>Continuous Camera Barcode Scanner</strong>
               <div class="scanner-actions">
                 <button class="btn btn-mini" type="button" data-action="start" data-shift-key="1st">Start
                   Camera</button>
@@ -120,11 +125,11 @@
               </div>
             </div>
             <div class="reader" id="reader_1st"></div>
-            <p class="hint" id="scanStatus_1st">Camera off. Manual entry also works.</p>
+            <p class="hint" id="scanStatus_1st">Camera off. File / batch name type karke Start Camera dabao.</p>
           </div>
 
           <div class="save-row">
-            <button class="btn btn-primary" type="button" data-save-shift="1st Shift" data-shift-key="1st">Save 1st
+            <button class="btn btn-primary" type="button" data-save-shift="1st Shift" data-shift-key="1st">Manual Save 1st
               Shift Record</button>
           </div>
 
@@ -135,7 +140,7 @@
                   <th>KN Number</th>
                   <th>Shift</th>
                   <th>Barcode Number</th>
-                  <th>File Name</th>
+                  <th>File / Batch Name</th>
                   <th>Created Date & Time</th>
                   <th>View</th>
                   <th>Download</th>
@@ -152,14 +157,19 @@
           <div class="shift-title-row">
             <div>
               <h3>2nd Shift</h3>
-              <p>Separate storage for 2nd Shift. Data will not mix with 1st Shift.</p>
+              <p>Separate storage for 2nd Shift. Scanned barcodes 1st Shift me mix nahi honge.</p>
             </div>
             <button class="btn btn-soft export-shift-btn" type="button" data-shift="2nd Shift">Shift Excel</button>
           </div>
 
           <div class="form-grid">
             <label class="field">
-              <span>File Upload</span>
+              <span>File / Batch Name</span>
+              <input type="text" id="batchFile_2nd" placeholder="Example: KN1 2nd Shift File 01" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span>Optional File Upload</span>
               <input type="file" id="file_2nd" />
             </label>
 
@@ -171,7 +181,7 @@
 
           <div class="scanner-box">
             <div class="scanner-header">
-              <strong>Camera Barcode Scanner</strong>
+              <strong>Continuous Camera Barcode Scanner</strong>
               <div class="scanner-actions">
                 <button class="btn btn-mini" type="button" data-action="start" data-shift-key="2nd">Start
                   Camera</button>
@@ -180,11 +190,11 @@
               </div>
             </div>
             <div class="reader" id="reader_2nd"></div>
-            <p class="hint" id="scanStatus_2nd">Camera off. Manual entry also works.</p>
+            <p class="hint" id="scanStatus_2nd">Camera off. File / batch name type karke Start Camera dabao.</p>
           </div>
 
           <div class="save-row">
-            <button class="btn btn-primary" type="button" data-save-shift="2nd Shift" data-shift-key="2nd">Save 2nd
+            <button class="btn btn-primary" type="button" data-save-shift="2nd Shift" data-shift-key="2nd">Manual Save 2nd
               Shift Record</button>
           </div>
 
@@ -195,7 +205,7 @@
                   <th>KN Number</th>
                   <th>Shift</th>
                   <th>Barcode Number</th>
-                  <th>File Name</th>
+                  <th>File / Batch Name</th>
                   <th>Created Date & Time</th>
                   <th>View</th>
                   <th>Download</th>
