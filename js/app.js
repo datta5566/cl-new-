@@ -2,12 +2,12 @@
   File Store Pro
   Continuous barcode scanning + manual save
 
-  New behavior:
+  Behavior:
   - Type File / Batch Name first
-  - Start camera
+  - Start camera one time
+  - Camera remains open until Stop is clicked
   - Every barcode scan auto-saves under that same file/batch name
-  - Camera keeps running until Stop is clicked
-  - All scanned barcodes show immediately in the shift table
+  - Live qty and full barcode list show below the scanner
 */
 
 const STORAGE_KEY = "FILE_STORE_PRO_RECORDS_V2";
@@ -35,6 +35,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadRecords();
   createKNButtons();
   attachEvents();
+  createLiveScanPanels();
   renderApp();
   showToast("Website ready. File / batch name type karke camera start karo.", "success");
 });
@@ -116,6 +117,13 @@ function attachEvents() {
       deleteRecord(target.dataset.deleteId);
     }
   });
+
+  document.addEventListener("input", (event) => {
+    if (event.target && (event.target.id === "batchFile_1st" || event.target.id === "batchFile_2nd")) {
+      updateLiveScanPanel("1st");
+      updateLiveScanPanel("2nd");
+    }
+  });
 }
 
 function loadRecords() {
@@ -153,6 +161,8 @@ function renderApp() {
   renderSummary();
   renderTable("1st Shift", "1st");
   renderTable("2nd Shift", "2nd");
+  updateLiveScanPanel("1st");
+  updateLiveScanPanel("2nd");
 }
 
 function renderHeader() {
@@ -201,6 +211,69 @@ function renderTable(shiftName, shiftKey) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function createLiveScanPanels() {
+  ["1st", "2nd"].forEach((shiftKey) => {
+    const status = document.getElementById(`scanStatus_${shiftKey}`);
+    if (!status || document.getElementById(`liveScanPanel_${shiftKey}`)) return;
+
+    const panel = document.createElement("div");
+    panel.className = "live-scan-panel";
+    panel.id = `liveScanPanel_${shiftKey}`;
+    panel.innerHTML = `
+      <div class="live-scan-head">
+        <div class="live-scan-title">Current File Scan List</div>
+        <div class="live-scan-qty" id="liveScanQty_${shiftKey}">Qty: 0</div>
+      </div>
+      <div class="live-scan-empty" id="liveScanFile_${shiftKey}">File / batch name type karo.</div>
+      <div class="live-scan-list" id="liveScanList_${shiftKey}"></div>
+    `;
+
+    status.insertAdjacentElement("afterend", panel);
+  });
+}
+
+function updateLiveScanPanel(shiftKey) {
+  const qtyEl = document.getElementById(`liveScanQty_${shiftKey}`);
+  const fileEl = document.getElementById(`liveScanFile_${shiftKey}`);
+  const listEl = document.getElementById(`liveScanList_${shiftKey}`);
+
+  if (!qtyEl || !fileEl || !listEl) return;
+
+  const shiftName = getShiftName(shiftKey);
+  const batchName = getBatchFileName(shiftKey);
+
+  if (!batchName) {
+    qtyEl.textContent = "Qty: 0";
+    fileEl.textContent = "File / batch name type karo.";
+    listEl.innerHTML = "";
+    return;
+  }
+
+  const batchRecords = records
+    .filter((record) =>
+      record.kn === selectedKN &&
+      record.shift === shiftName &&
+      (record.fileName === batchName || record.batchName === batchName)
+    )
+    .slice()
+    .reverse();
+
+  qtyEl.textContent = `Qty: ${batchRecords.length}`;
+  fileEl.textContent = `File / Batch: ${batchName}`;
+
+  if (!batchRecords.length) {
+    listEl.innerHTML = `<div class="live-scan-empty">Abhi is file me koi barcode scan nahi hua.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = batchRecords.map((record, index) => `
+    <div class="live-scan-item">
+      <span class="live-scan-sr">#${index + 1}</span>
+      <span>${escapeHTML(record.barcode || "-")}</span>
+    </div>
+  `).join("");
 }
 
 function getRecordsByKNAndShift(kn, shiftName) {
@@ -302,6 +375,7 @@ function autoSaveScannedBarcode(decodedText, shiftKey) {
   if (isDuplicateBarcode(selectedKN, shiftName, barcode)) {
     if (status) status.textContent = `Duplicate skipped: ${barcode}`;
     showToast("This barcode is already scanned.", "warning");
+    updateLiveScanPanel(shiftKey);
     return;
   }
 
@@ -327,7 +401,7 @@ function autoSaveScannedBarcode(decodedText, shiftKey) {
     (record.fileName === batchName || record.batchName === batchName)
   ).length;
 
-  if (status) status.textContent = `Saved: ${barcode} | File: ${batchName} | Total in this file: ${totalInBatch}`;
+  if (status) status.textContent = `Saved: ${barcode} | File: ${batchName} | Total Qty: ${totalInBatch} | Camera ON`;
 }
 
 function convertFileToBase64(file) {
@@ -346,7 +420,7 @@ async function startScanner(shiftKey) {
   }
 
   if (scannerRunning[shiftKey]) {
-    showToast("Scanner already running hai.", "warning");
+    showToast("Scanner already running hai. Camera open hi hai, barcode scan karte raho.", "warning");
     return;
   }
 
@@ -375,7 +449,8 @@ async function startScanner(shiftKey) {
       () => {}
     );
 
-    if (scanStatus) scanStatus.textContent = `Camera on. Har barcode automatic save hoga. File: ${batchName}`;
+    if (scanStatus) scanStatus.textContent = `Camera ON. Har sticker barcode automatic save hoga. File: ${batchName}`;
+    updateLiveScanPanel(shiftKey);
   } catch (error) {
     console.error(error);
     scannerRunning[shiftKey] = false;
