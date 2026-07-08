@@ -215,7 +215,7 @@
         <div>
           <p class="eyebrow">Customer Complaint Traceability</p>
           <h2>Complaint se Unit Trace karo</h2>
-          <p>Barcode ya part details dalne par app batayega ki part kis KN / shift me record hua aur defect kis unit/process se pass hua ho sakta hai.</p>
+          <p>Sticker / QR scan karne par app barcode, part, unit aur customer details samajhne ki koshish karega.</p>
         </div>
         <button class="btn btn-soft" type="button" id="exportComplaintsBtn">Download Complaint Excel</button>
       </div>
@@ -260,6 +260,18 @@
           <span>Complaint Remark</span>
           <input type="text" id="complaintRemark" placeholder="Short complaint details" autocomplete="off" />
         </label>
+      </div>
+
+      <div class="sticker-scanner-box">
+        <div class="scanner-header">
+          <strong>Sticker / QR Scanner</strong>
+          <div class="scanner-actions">
+            <button class="btn btn-mini" type="button" id="startStickerScannerBtn">Scan Sticker</button>
+            <button class="btn btn-mini btn-danger-outline" type="button" id="stopStickerScannerBtn">Stop</button>
+          </div>
+        </div>
+        <div class="reader" id="complaintReader"></div>
+        <p class="hint" id="stickerScanStatus">Sticker scanner off. QR format example: BC=123|PART=IC|UNIT=KN12|CUSTOMER=ABC|DEFECT=RAIL OUT</p>
       </div>
 
       <div class="complaint-actions">
