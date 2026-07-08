@@ -1,5 +1,5 @@
 /*
-  DK File Store Pro
+  File Store Pro
   Beginner-friendly JavaScript
 
   Features:
@@ -13,7 +13,7 @@
 */
 
 // localStorage key. Change version name if you later change storage format.
-const STORAGE_KEY = "DK_FILE_STORE_PRO_RECORDS_V1";
+const STORAGE_KEY = "FILE_STORE_PRO_RECORDS_V1";
 
 // Currently opened KN section.
 let selectedKN = "KN1";
@@ -476,7 +476,7 @@ function deleteRecord(recordId) {
  * Export all records to Excel.
  */
 function exportAllRecords() {
-  exportRecordsToExcel(records, "DK_File_Store_Pro_All_Records.xlsx");
+  exportRecordsToExcel(records, "File_Store_Pro_All_Records.xlsx");
 }
 
 /**
@@ -484,7 +484,7 @@ function exportAllRecords() {
  */
 function exportCurrentKNRecords() {
   const currentKNRecords = records.filter((record) => record.kn === selectedKN);
-  exportRecordsToExcel(currentKNRecords, `DK_File_Store_Pro_${selectedKN}.xlsx`);
+  exportRecordsToExcel(currentKNRecords, `File_Store_Pro_${selectedKN}.xlsx`);
 }
 
 /**
@@ -493,7 +493,7 @@ function exportCurrentKNRecords() {
 function exportShiftRecords(shiftName) {
   const shiftRecords = getRecordsByKNAndShift(selectedKN, shiftName);
   const safeShiftName = shiftName.replace(/\s+/g, "_");
-  exportRecordsToExcel(shiftRecords, `DK_File_Store_Pro_${selectedKN}_${safeShiftName}.xlsx`);
+  exportRecordsToExcel(shiftRecords, `File_Store_Pro_${selectedKN}_${safeShiftName}.xlsx`);
 }
 
 /**
@@ -562,7 +562,7 @@ function getCurrentDateTime() {
  * Create simple unique id.
  */
 function createUniqueId() {
-  return `DK-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `FS-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 /**
