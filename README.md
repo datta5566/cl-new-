@@ -1,4 +1,4 @@
-# DK File Store Pro
+# File Store Pro
 
 Professional single-page web app for KN1 to KN30 file and barcode records.
 
@@ -14,7 +14,7 @@ Camera scanner works best on `localhost` or HTTPS. Manual barcode entry works wi
 ## Folder Structure
 
 ```text
-DK-File-Store-Pro/
+File-Store-Pro/
 ├── index.html
 ├── css/
 │   └── style.css
@@ -40,8 +40,8 @@ DK-File-Store-Pro/
 ```bash
 git init
 git add .
-git commit -m "Initial DK File Store Pro app"
+git commit -m "Initial File Store Pro app"
 git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/DK-File-Store-Pro.git
+git remote add origin https://github.com/YOUR-USERNAME/File-Store-Pro.git
 git push -u origin main
 ```
