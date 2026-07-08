@@ -8,6 +8,7 @@
 
   <!-- Main CSS -->
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/complaints.css" />
 
   <!-- Barcode / QR scanner library. Works with mobile camera and laptop webcam on localhost/https. -->
   <script src="https://unpkg.com/html5-qrcode" defer></script>
@@ -17,6 +18,7 @@
 
   <!-- Main JavaScript -->
   <script src="js/app.js" defer></script>
+  <script src="js/complaints.js" defer></script>
 </head>
 
 <body>
@@ -206,6 +208,90 @@
         </section>
       </div>
     </main>
+
+    <!-- Customer Complaint Traceability -->
+    <section class="complaint-panel" id="complaintPanel">
+      <div class="complaint-heading">
+        <div>
+          <p class="eyebrow">Customer Complaint Traceability</p>
+          <h2>Complaint se Unit Trace karo</h2>
+          <p>Barcode ya part details dalne par app batayega ki part kis KN / shift me record hua aur defect kis unit/process se pass hua ho sakta hai.</p>
+        </div>
+        <button class="btn btn-soft" type="button" id="exportComplaintsBtn">Download Complaint Excel</button>
+      </div>
+
+      <div class="complaint-grid">
+        <label class="field">
+          <span>Complaint No.</span>
+          <input type="text" id="complaintNo" placeholder="Example: CC-001" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Customer / Site Name</span>
+          <input type="text" id="customerName" placeholder="Customer name" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Barcode Number</span>
+          <input type="text" id="complaintBarcode" placeholder="Scan / enter barcode" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Part Name</span>
+          <input type="text" id="complaintPartName" placeholder="Example: IC / JRB / Panel" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Defect Type</span>
+          <input type="text" id="complaintDefect" placeholder="Example: welding, hole miss, rail out" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Defect Found At</span>
+          <input type="text" id="complaintFoundAt" placeholder="Customer / Site / PDI / Dispatch" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Suspected Process / Unit</span>
+          <input type="text" id="suspectedUnit" placeholder="Example: welding unit / PDI / cleaning" autocomplete="off" />
+        </label>
+
+        <label class="field field-wide">
+          <span>Complaint Remark</span>
+          <input type="text" id="complaintRemark" placeholder="Short complaint details" autocomplete="off" />
+        </label>
+      </div>
+
+      <div class="complaint-actions">
+        <button class="btn btn-primary" type="button" id="saveComplaintBtn">Save Complaint & Trace</button>
+        <button class="btn btn-soft" type="button" id="traceBarcodeBtn">Only Trace Barcode</button>
+        <button class="btn btn-danger-outline" type="button" id="clearComplaintFormBtn">Clear Form</button>
+      </div>
+
+      <div class="trace-result" id="traceResult">
+        Barcode trace result yaha dikhai dega.
+      </div>
+
+      <div class="table-wrap complaint-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Complaint No.</th>
+              <th>Customer</th>
+              <th>Barcode</th>
+              <th>Part Name</th>
+              <th>Defect</th>
+              <th>Record KN</th>
+              <th>Record Shift</th>
+              <th>Suspected Unit</th>
+              <th>Date & Time</th>
+              <th>Delete</th>
+            </tr>
+          </thead>
+          <tbody id="complaintTbody"></tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- Toast message -->
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
