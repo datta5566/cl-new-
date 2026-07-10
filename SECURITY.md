@@ -1,5 +1,7 @@
 # Security Policy
 
+Last reviewed: 10 July 2026
+
 ## Data model
 
 File Store Pro is a static browser application. Production records, complaint records, barcodes and uploaded file data are stored only in the current browser's `localStorage`.
