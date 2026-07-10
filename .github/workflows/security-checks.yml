@@ -37,35 +37,42 @@ jobs:
           node --check js/app.js
           node --check js/complaints.js
 
-      - name: Reject insecure HTTP resources
+      - name: Scan source for security problems
         shell: bash
         run: |
-          set -euo pipefail
-          if grep -RInE '(src|href)=["'"']http://' --include='*.html' --include='*.js' --include='*.css' .; then
-            echo 'Insecure HTTP resource found. Use HTTPS only.'
-            exit 1
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
 
-      - name: Scan for obvious committed secrets
-        shell: bash
-        run: |
-          set -euo pipefail
-          pattern='(api[_-]?key|client[_-]?secret|private[_-]?key|access[_-]?token)[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,}'
-          if grep -RInE "$pattern" --include='*.html' --include='*.js' --exclude-dir='.git' .; then
-            echo 'Possible secret found in source code. Move secrets to a backend or GitHub Secrets.'
-            exit 1
-          fi
+          files = [
+              p for p in Path('.').rglob('*')
+              if p.is_file()
+              and '.git' not in p.parts
+              and p.suffix.lower() in {'.html', '.js', '.css'}
+          ]
 
-      - name: Check for dangerous JavaScript functions
-        shell: bash
-        run: |
-          set -euo pipefail
-          if grep -RInE '\beval\s*\(|new[[:space:]]+Function\s*\(' --include='*.html' --include='*.js' --exclude-dir='.git' .; then
-            echo 'Dynamic code execution found.'
-            exit 1
-          fi
+          checks = [
+              ('insecure HTTP resource', re.compile(r'''(?:src|href)\s*=\s*["']http://''', re.I)),
+              ('possible committed secret', re.compile(r'''(?:api[_-]?key|client[_-]?secret|private[_-]?key|access[_-]?token)\s*[:=]\s*["'][^"']{8,}''', re.I)),
+              ('dynamic code execution', re.compile(r'''\beval\s*\(|new\s+Function\s*\(''')),
+          ]
+
+          problems = []
+          for path in files:
+              text = path.read_text(encoding='utf-8', errors='ignore')
+              for label, pattern in checks:
+                  if pattern.search(text):
+                      problems.append(f'{path}: {label}')
+
+          if problems:
+              print('\n'.join(problems))
+              sys.exit(1)
+
+          print(f'Security scan passed for {len(files)} source files.')
+          PY
 
       - name: Confirm HTTPS camera guidance
         shell: bash
         run: |
-          grep -qi 'https\|localhost' README.md
+          grep -Eqi 'https|localhost' README.md
