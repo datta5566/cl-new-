@@ -1,0 +1,71 @@
+name: Security and static checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify required application files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f js/app.js
+          test -f js/complaints.js
+          test -f css/style.css
+          test -f css/complaints.css
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check js/app.js
+          node --check js/complaints.js
+
+      - name: Reject insecure HTTP resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE '(src|href)=["'"']http://' --include='*.html' --include='*.js' --include='*.css' .; then
+            echo 'Insecure HTTP resource found. Use HTTPS only.'
+            exit 1
+          fi
+
+      - name: Scan for obvious committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='(api[_-]?key|client[_-]?secret|private[_-]?key|access[_-]?token)[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,}'
+          if grep -RInE "$pattern" --include='*.html' --include='*.js' --exclude-dir='.git' .; then
+            echo 'Possible secret found in source code. Move secrets to a backend or GitHub Secrets.'
+            exit 1
+          fi
+
+      - name: Check for dangerous JavaScript functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE '\beval\s*\(|new[[:space:]]+Function\s*\(' --include='*.html' --include='*.js' --exclude-dir='.git' .; then
+            echo 'Dynamic code execution found.'
+            exit 1
+          fi
+
+      - name: Confirm HTTPS camera guidance
+        shell: bash
+        run: |
+          grep -qi 'https\|localhost' README.md
