@@ -1,0 +1,28 @@
+{
+  "name": "knest-ai-tools",
+  "owner": {
+    "name": "datta5566"
+  },
+  "description": "Claude Code tooling for the File Store Pro project.",
+  "plugins": [
+    {
+      "name": "claude-code-setup",
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      },
+      "description": "Anthropic's official Claude Code setup assistant.",
+      "homepage": "https://claude.com/plugins/claude-code-setup"
+    },
+    {
+      "name": "claude-mem",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/thedotmack/claude-mem.git",
+        "path": "plugin"
+      },
+      "description": "Persistent memory across Claude Code sessions.",
+      "license": "Apache-2.0"
+    }
+  ]
+}
