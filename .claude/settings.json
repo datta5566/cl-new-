@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "knest-ai-tools": {
+      "source": {
+        "source": "github",
+        "repo": "datta5566/cl-new-"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "claude-code-setup@knest-ai-tools": true,
+    "claude-mem@knest-ai-tools": true
+  }
+}
